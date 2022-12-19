@@ -5,7 +5,6 @@ import requests
 import numpy as np
 from PIL import Image
 import re
-import tomli
 st.set_page_config(page_title='Movie Recommendation System', layout='wide')
 mood_dict = {'Happy': 'Horror', 'Sad': 'Drama', 'Satisfied': 'Animation', 'Angry': 'Romance', 'Peaceful': 'Fantasy',
              'Fearful': 'Adventure', 'Excited': 'Crime', 'Depressed': 'Comedy', 'Content': 'Mystery', 'Sorrowful': 'Action'}
