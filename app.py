@@ -5,7 +5,6 @@ import requests
 import numpy as np
 from PIL import Image
 import re
-import tomli
 st.set_page_config(page_title='Movie Recommendation System', layout='wide')
 mood_dict = {'Happy': 'Horror', 'Sad': 'Drama', 'Satisfied': 'Animation', 'Angry': 'Romance', 'Peaceful': 'Fantasy',
              'Fearful': 'Adventure', 'Excited': 'Crime', 'Depressed': 'Comedy', 'Content': 'Mystery', 'Sorrowful': 'Action'}
@@ -53,15 +52,12 @@ def recommend_from_mood(genre):
         recommended_movies_posters.append(fetch_poster(movie.id))
     return recommended_movies, recommended_movies_posters
 
-# todo
-
 
 def recommend_from_details(details):
     recommended_movies = []
     recommended_movies_posters = []
+    sorted_list = []
     for i in movies.index:
-        if(len(recommended_movies) == 25):
-            break
         take = True
         if not all(genre in movies['genres'][i] for genre in details['genres']):
             take = False
@@ -78,10 +74,14 @@ def recommend_from_details(details):
                 take = False
                 break
         if(take):
-            movie_id = movies.iloc[i].id
-            recommended_movies.append(movies.iloc[i].title)
-            # fetch poster from api
-            recommended_movies_posters.append(fetch_poster(movie_id))
+            sorted_list.append(i)
+    sorted_list = sorted([movies.iloc[x] for x in sorted_list],
+                         key=lambda x: x.revenue, reverse=True)
+    if(len(sorted_list) > 25):
+        sorted_list = sorted_list[0:25]
+    for movie in sorted_list:
+        recommended_movies.append(movie.title)
+        recommended_movies_posters.append(fetch_poster(movie.id))
     return recommended_movies, recommended_movies_posters
 
 
@@ -148,7 +148,10 @@ with tab3:
             crew_dict[pair[0]] = crew_dict[pair[0]] + \
                 re.split('\s*,\s*', pair[1])
     details['crew'] = crew_dict
-# print(crew_dict)
+    # print(crew_dict)
     if st.button('Recommend', key=3):
         names, posters = recommend_from_details(details)
-        display_poster(names, posters)
+        if(len(names)):
+            display_poster(names, posters)
+        else:
+            st.text("No results match your search")
