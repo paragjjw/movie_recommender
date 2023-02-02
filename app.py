@@ -38,9 +38,10 @@ def fetch_poster(index):
 
 def recommend_from_name(movie, adult):
     movie_index = movies[movies['title'] == movie].index[0]
+    print(movie_index)
     distances = similarity[movie_index]
-    movies_list = sorted([x for x in enumerate(distances) if adult or not movies.iloc[x[0]].adult],
-                         reverse=True, key=lambda x: x[1])[1:26]
+    movies_list = [
+        x for x in distances if adult or not movies.iloc[x[0]].adult][1:26]
     sorted_list = [x[0] for x in movies_list]
     return sorted_list
 
@@ -78,7 +79,6 @@ def recommend_from_details(details):
             take = False
         if(take):
             sorted_list.append(i)
-    print(sorted_list)
     sorted_list = sorted([x for x in sorted_list],
                          key=lambda x: movies.iloc[x].imdb_rating, reverse=True)
     if(len(sorted_list) > 25):
@@ -97,10 +97,9 @@ def display_poster(index_list):
                             index_list[i+j]), caption=movies.iloc[index_list[i+j]].title)
 
 
-similarity = pickle.load(open('similarity.pkl', 'rb'))
+similarity = pickle.load(open('similarity_2.pkl', 'rb'))
 movies_dict = pickle.load(open('movies.pkl', 'rb'))
 movies = pd.DataFrame(movies_dict)
-# print(movies.shape[0])
 st.title('Movie Recommender system')
 strategy = st.subheader('Recommend according to:')
 tab1, tab2, tab3 = st.tabs(["Movie name", "Mood", "Movie Details"])
