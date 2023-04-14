@@ -6,6 +6,7 @@ from PIL import Image
 import numpy as np
 import re
 from io import BytesIO
+import time
 import base64
 import streamlit.components.v1 as components
 st.set_page_config(page_title='Movie Recommendation System', layout='wide')
@@ -120,7 +121,7 @@ def display_poster(index_list):
     {story}
     </div >
     <div class = "more_info">
-    <a href = "{wiki_link}" target = "_blank"> <button type = "button" class = "btn"> Read More </button> </a>
+    <a href = "https://www.imdb.com/title/{imdb_id}" target = "_blank"> <button type = "button" class = "btn"> Read More </button> </a>
     </div>
     </div>
     </div>
@@ -128,14 +129,14 @@ def display_poster(index_list):
     <h5 class = "card-title" > {title} </h5>
   </div>  
 </div>
-    """.format(wiki_link=movies.iloc[i].wiki_link, story=get_story(i), genres=get_genres(i), rating=get_rating(i), year=get_year(i), runtime=get_runtime(i), img_url=fetch_poster(i), title=movies.iloc[i].title)
+    """.format(imdb_id=movies.iloc[i].imdb_id, story=get_story(i), genres=get_genres(i), rating=get_rating(i), year=get_year(i), runtime=get_runtime(i), img_url=fetch_poster(i), title=movies.iloc[i].title)
     html_string += "</div>"
-    components.html(html_string, height=2500, scrolling=True)
+    components.html(html_string, height=2100, scrolling=True)
 
 
 def recommend_from_name(movie, adult):
     movie_index = movies[movies['title'] == movie].index[0]
-    print(movie_index)
+    # print(movie_index)
     distances = similarity[movie_index]
     movies_list = [
         x for x in distances if adult or not movies.iloc[x[0]].adult][1:26]
@@ -144,7 +145,11 @@ def recommend_from_name(movie, adult):
 
 
 def recommend_from_mood(emotion, adult):
-    return sorted([x for x in movies.index if movies.iloc[x].story == movies.iloc[x].story],
+    sorted_list = sorted([x for x in movies.index if movies.iloc[x].story == movies.iloc[x].story and (adult or not movies.iloc[x[0]].adult)],
+                         key=lambda x: movies.iloc[x].Emotion[0][emotion], reverse=True)[0:25]
+    # for i in sorted_list:
+    #     print(movies.iloc[i].Emotion[0][emotion])
+    return sorted([x for x in movies.index if movies.iloc[x].story == movies.iloc[x].story and (adult or not movies.iloc[x[0]].adult)],
                   key=lambda x: movies.iloc[x].Emotion[0][emotion], reverse=True)[0:25]
 
 
@@ -183,7 +188,67 @@ def recommend_from_details(details):
     return sorted_list
 
 
-similarity = pickle.load(open('similarity_2.pkl', 'rb'))
+def display_genres():
+    selected_movie_genre = st.multiselect(
+        'Enter movie genre', generate_set('genres'))
+    details['genres'] = selected_movie_genre
+
+
+def display_release_year_element():
+    col1, col2 = st.columns(2)
+    with col1:
+        start_release_year = st.number_input(
+            'Enter the minimum release year', key=8, min_value=1950, max_value=2019, value=1950)
+    with col2:
+        end_release_year = st.number_input(
+            'Enter the maximum release year', key=9, min_value=1950, max_value=2019, value=2019)
+    details['release_year'] = (
+        start_release_year, end_release_year)
+
+
+def display_cast_element():
+    cast = st.multiselect(
+        'Enter movie cast', generate_set('actors'))
+    if(cast != ''):
+        details['cast'] = cast
+
+
+def display_rating_element():
+    col1, col2 = st.columns(2)
+    with col1:
+        start_rating = st.number_input(
+            'Enter the minimum rating', key=10, min_value=0.0, max_value=10.0, value=0.0, step=0.1)
+    with col2:
+        end_rating = st.number_input(
+            'Enter the maximum rating', key=11, min_value=0.0, max_value=10.0, value=10.0, step=0.1)
+    details['rating'] = (start_rating, end_rating)
+
+
+def display_runtime_element():
+    col1, col2 = st.columns(2)
+    with col1:
+        start_runtime = st.number_input(
+            'Enter the minimum runtime', key=12, min_value=0, max_value=330, value=0, step=15)
+    with col2:
+        end_runtime = st.number_input(
+            'Enter the maximum runtime', key=13, min_value=0, max_value=330, value=330, step=15)
+    details['runtime'] = (start_runtime, end_runtime)
+
+
+def display_director_element():
+    director = st.selectbox(
+        'Enter movie director\'s name', ['Choose an option']+generate_set('directors'))
+    if(director != 'Choose an option'):
+        details['director'] = list(director)
+
+
+def display_writers_element():
+    writers = st.multiselect(
+        'Enter movie writers\' name', generate_set('writers'))
+    details['writers'] = writers
+
+
+similarity = pickle.load(open('similarity.pkl', 'rb'))
 movies_dict = pickle.load(open('movies.pkl', 'rb'))
 movies = pd.DataFrame(movies_dict)
 st.title('Movie Recommender system')
@@ -200,8 +265,8 @@ with tab1:
         display_poster(index_list)
 
 with tab2:
-    selected_emotion = st.selectbox('What kind of movie would you like to watch', [
-        'Anger', 'Anticipation', 'Disgust', 'Fear', 'Joy', 'Sadness', 'Surprise', 'Trust'], label_visibility='collapsed')
+    selected_emotion = st.selectbox('What kind of movie would you like to watch?', [
+        'Anger', 'Anticipation', 'Disgust', 'Fear', 'Joy', 'Sadness', 'Surprise', 'Trust'])
     adult = False
     if(st.radio('Are you an adult?', ['Yes', 'No'], key=3) == 'Yes'):
         adult = True
@@ -212,71 +277,26 @@ with tab2:
 with tab3:
     if 'count' not in st.session_state:
         st.session_state['count'] = 0
-        if 'check_placeholder' not in st.session_state:
-            st.session_state['check_placeholder'] = [False]*6
-        st.experimental_rerun()
+    if 'check_placeholder' not in st.session_state:
+        st.session_state['check_placeholder'] = [False]*6
     count = st.session_state['count']
     check_placeholder = st.session_state['check_placeholder']
-    placeholder = []
     details = {'genres': [], 'release_year': (1950, 2019), 'rating': (
         0.00, 10.00), 'runtime': (0, 330), 'cast': [], 'director': [], 'writers': []}
-    selected_movie_genre = st.multiselect(
-        'Enter movie genre', generate_set('genres'))
-    details['genres'] = selected_movie_genre
-    col1, col2 = st.columns(2)
-    for i in range(7):
-        placeholder.append(st.empty())
-    if(check_placeholder[0]):
-        with placeholder[0].container():
-            with col1:
-                start_release_year = st.number_input(
-                    'Enter the minimum release year', key=8, min_value=1950, max_value=2019, value=1950)
-            with col2:
-                end_release_year = st.number_input(
-                    'Enter the maximum release year', key=9, min_value=1950, max_value=2019, value=2019)
-            details['release_year'] = (
-                start_release_year, end_release_year)
-    if(check_placeholder[1]):
-        with placeholder[1].container():
-            cast = st.multiselect(
-                'Enter movie cast', generate_set('actors'))
-            if(cast != ''):
-                details['cast'] = cast
-    if(check_placeholder[2]):
-        with placeholder[2].container():
-            with col1:
-                start_rating = st.number_input(
-                    'Enter the minimum rating', key=10, min_value=0.0, max_value=10.0, value=0.0, step=0.1)
-            with col2:
-                end_rating = st.number_input(
-                    'Enter the maximum rating', key=11, min_value=0.0, max_value=10.0, value=10.0, step=0.1)
-            details['rating'] = (start_rating, end_rating)
-    if(check_placeholder[3]):
-        with placeholder[3].container():
-            with col1:
-                start_runtime = st.number_input(
-                    'Enter the minimum runtime', key=12, min_value=0, max_value=330, value=0, step=15)
-            with col2:
-                end_runtime = st.number_input(
-                    'Enter the maximum runtime', key=13, min_value=0, max_value=330, value=330, step=15)
-            details['runtime'] = (start_runtime, end_runtime)
-    if(check_placeholder[4]):
-        with placeholder[4].container():
-            director = st.selectbox(
-                'Enter movie director\'s name', ['Choose an option']+generate_set('directors'))
-            if(director != 'Choose an option'):
-                details['director'] = list(director)
-    if(check_placeholder[5]):
-        with placeholder[5].container():
-            writers = st.multiselect(
-                'Enter movie writers\' name', generate_set('writers'))
-            details['writers'] = writers
+    element = [display_release_year_element, display_cast_element, display_rating_element,
+               display_runtime_element, display_director_element, display_writers_element]
+    display_genres()
+    for i in range(6):
+        if(check_placeholder[i]):
+            element[i]()
+        else:
+            break
     if(count < 6):
-        with placeholder[6].container():
-            if st.button("Add more filters"):
-                st.session_state['count'] = count+1
-                check_placeholder[count] = True
-                st.session_state['check_placeholder'] = check_placeholder
+        if st.button("Add more filters"):
+            st.session_state['count'] = count+1
+            check_placeholder[count] = True
+            st.session_state['check_placeholder'] = check_placeholder
+            st.experimental_rerun()
     if(details['rating'][0] > details['rating'][1] or details['release_year'][0] > details['release_year'][1] or details['runtime'][0] > details['runtime'][1]):
         st.markdown(
             f'<p style="color:red">Please Enter valid movie details</p>', unsafe_allow_html=True)
@@ -287,4 +307,3 @@ with tab3:
                 display_poster(index_list)
             else:
                 st.text("No results match your search")
-
